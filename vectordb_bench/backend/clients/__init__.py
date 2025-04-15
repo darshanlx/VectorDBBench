@@ -45,6 +45,7 @@ class DB(Enum):
     TiDB = "TiDB"
     Clickhouse = "Clickhouse"
     Vespa = "Vespa"
+    VectorX = "VectorX"
 
     @property
     def init_cls(self) -> type[VectorDB]:  # noqa: PLR0911, PLR0912, C901
@@ -163,6 +164,10 @@ class DB(Enum):
             from .vespa.vespa import Vespa
 
             return Vespa
+        if self == DB.VectorX:
+            from .vectorx.vectorx import VectorX
+
+            return VectorX
 
         msg = f"Unknown DB: {self.name}"
         raise ValueError(msg)
@@ -284,6 +289,10 @@ class DB(Enum):
             from .vespa.config import VespaConfig
 
             return VespaConfig
+        if self == DB.VectorX:
+            from .vectorx.config import VectorXConfig
+
+            return VectorXConfig
 
         msg = f"Unknown DB: {self.name}"
         raise ValueError(msg)
