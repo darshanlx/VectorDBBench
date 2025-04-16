@@ -44,7 +44,7 @@ class VectorXTypedDict(CommonTypedDict):
     ]
     m: Annotated[
         int, 
-        click.option("--M", type=int, default=None, help="HNSW M parameter", show_default=True)
+        click.option("--m", type=int, default=None, help="HNSW M parameter", show_default=True)
     ]
     ef_con: Annotated[
         int, 

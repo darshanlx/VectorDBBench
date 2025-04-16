@@ -32,10 +32,9 @@ class VectorX(VectorDB):
         self.space_type = db_config.get("space_type", "cosine")
         self.use_fp16 = db_config.get("use_fp16")
         self.version = db_config.get("version")
-        self.M = db_config.get("M")
+        self.M = db_config.get("m")
         self.ef_con = db_config.get("ef_con")
         self.ef_search = db_config.get("ef_search")
-        log.info(f"Token: {self.token}")
         self.vx = vectorx.VectorX(token=self.token)
         
         try:

@@ -10,7 +10,7 @@ class VectorXConfig(DBConfig):
     space_type: str
     use_fp16: bool = True
     version: Optional[int] = 1
-    M: Optional[int] = 32
+    m: Optional[int] = 32
     ef_con: Optional[int] = 256
     ef_search: Optional[int] = 128
     collection_name: str
@@ -23,7 +23,7 @@ class VectorXConfig(DBConfig):
             "space_type": self.space_type,
             "use_fp16": self.use_fp16,
             "version": self.version,
-            "M": self.M,
+            "m": self.m,
             "ef_con": self.ef_con,
             "ef_search": self.ef_search,
             "collection_name": self.collection_name,
