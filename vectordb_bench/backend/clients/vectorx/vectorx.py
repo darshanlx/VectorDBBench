@@ -29,6 +29,7 @@ class VectorX(VectorDB):
             self.collection_name = f"vectorx_bench_{uuid.uuid4().hex[:8]}"
         
         self.key = db_config.get("key")
+        self.use_encryption = db_config.get("use_encryption")
         self.space_type = db_config.get("space_type", "cosine")
         self.use_fp16 = db_config.get("use_fp16")
         self.version = db_config.get("version")
@@ -54,7 +55,7 @@ class VectorX(VectorDB):
         try:
             resp = self.vx.create_index(
                 name=self.collection_name, 
-                key=self.key, 
+                key=self.key if self.use_encryption else None, 
                 dimension=dim,
                 space_type=self.space_type,
                 use_fp16=self.use_fp16,
@@ -86,9 +87,9 @@ class VectorX(VectorDB):
     @contextmanager
     def init(self):
         try:
-            log.info(f"Token: {self.token}")
+            # log.info(f"Token: {self.token}")
             vx = vectorx.VectorX(token=self.token)
-            self.index = vx.get_index(name=self.collection_name, key=self.key)
+            self.index = vx.get_index(name=self.collection_name, key=self.key if self.use_encryption else None)
             yield
         except Exception as e:
             log.error(f"Error initializing VectorX client: {e}")
@@ -108,23 +109,17 @@ class VectorX(VectorDB):
         assert len(embeddings) == len(metadata)
         insert_count = 0
         try:
-            batch_size = 1000
+            batch_vectors = [
+                {
+                    "id": str(metadata[i]),
+                    "vector": embeddings[i],
+                    "meta": {"id": str(metadata[i])}
+                }
+                for i in range(len(embeddings))
+            ]
+            self.index.upsert(batch_vectors)
+            insert_count = len(batch_vectors)
             
-            for batch_start_offset in range(0, len(embeddings), batch_size):
-                batch_end_offset = min(batch_start_offset + batch_size, len(embeddings))
-                
-                batch_vectors = []
-                for i in range(batch_start_offset, batch_end_offset):
-                    record = {
-                        "id": str(metadata[i]),
-                        "vector": embeddings[i],
-                        "meta": {"id": str(metadata[i])}
-                    }
-                    batch_vectors.append(record)
-                
-                self.index.upsert(batch_vectors)
-                insert_count += batch_end_offset - batch_start_offset
-                
         except Exception as e:
             return (insert_count, e)
             

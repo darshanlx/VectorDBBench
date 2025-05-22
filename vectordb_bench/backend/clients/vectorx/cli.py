@@ -58,6 +58,10 @@ class VectorXTypedDict(CommonTypedDict):
         str, 
         click.option("--collection-name", type=str, required=True, help="VectorX collection name (will use a random name if not provided)", show_default=True)
     ]
+    use_encryption: Annotated[
+        bool, 
+        click.option("--use-encryption/--no-use-encryption", type=bool, default=True, help="Use encryption", show_default=True)
+    ]
 
 
 @click.command()

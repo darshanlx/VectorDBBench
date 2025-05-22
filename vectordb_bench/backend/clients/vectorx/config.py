@@ -9,6 +9,7 @@ class VectorXConfig(DBConfig):
     key: Optional[str] = "3a5f08c7d9e1b2a43a5f08c7d9e1b2a4"
     space_type: str
     use_fp16: bool = True
+    use_encryption: bool = True
     version: Optional[int] = 1
     m: Optional[int] = 32
     ef_con: Optional[int] = 256
@@ -22,6 +23,7 @@ class VectorXConfig(DBConfig):
             "key": self.key,
             "space_type": self.space_type,
             "use_fp16": self.use_fp16,
+            "use_encryption": self.use_encryption,
             "version": self.version,
             "m": self.m,
             "ef_con": self.ef_con,

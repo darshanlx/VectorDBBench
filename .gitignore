@@ -12,3 +12,7 @@ venv/
 .idea/
 results/
 logs/
+dataset/
+benchmark_logs.txt
+commands.txt
+past_vecx_res/
