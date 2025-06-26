@@ -24,4 +24,5 @@ scikit-learn
 pymilvus
 clickhouse_connect
 pyvespa
+mysql-connector-python
 vecx==0.31.7

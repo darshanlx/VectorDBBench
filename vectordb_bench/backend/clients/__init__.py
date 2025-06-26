@@ -27,6 +27,7 @@ class DB(Enum):
     Pinecone = "Pinecone"
     ElasticCloud = "ElasticCloud"
     QdrantCloud = "QdrantCloud"
+    QdrantLocal = "QdrantLocal"
     WeaviateCloud = "WeaviateCloud"
     PgVector = "PgVector"
     PgVectoRS = "PgVectoRS"
@@ -45,10 +46,12 @@ class DB(Enum):
     TiDB = "TiDB"
     Clickhouse = "Clickhouse"
     Vespa = "Vespa"
+    LanceDB = "LanceDB"
+    OceanBase = "OceanBase"
     VectorX = "VectorX"
 
     @property
-    def init_cls(self) -> type[VectorDB]:  # noqa: PLR0911, PLR0912, C901
+    def init_cls(self) -> type[VectorDB]:  # noqa: PLR0911, PLR0912, C901, PLR0915
         """Import while in use"""
         if self == DB.Milvus:
             from .milvus.milvus import Milvus
@@ -74,6 +77,11 @@ class DB(Enum):
             from .qdrant_cloud.qdrant_cloud import QdrantCloud
 
             return QdrantCloud
+
+        if self == DB.QdrantLocal:
+            from .qdrant_local.qdrant_local import QdrantLocal
+
+            return QdrantLocal
 
         if self == DB.WeaviateCloud:
             from .weaviate_cloud.weaviate_cloud import WeaviateCloud
@@ -145,6 +153,11 @@ class DB(Enum):
 
             return MongoDB
 
+        if self == DB.OceanBase:
+            from .oceanbase.oceanbase import OceanBase
+
+            return OceanBase
+
         if self == DB.MariaDB:
             from .mariadb.mariadb import MariaDB
 
@@ -169,11 +182,16 @@ class DB(Enum):
 
             return VectorX
 
+        if self == DB.LanceDB:
+            from .lancedb.lancedb import LanceDB
+
+            return LanceDB
+
         msg = f"Unknown DB: {self.name}"
         raise ValueError(msg)
 
     @property
-    def config_cls(self) -> type[DBConfig]:  # noqa: PLR0911, PLR0912, C901
+    def config_cls(self) -> type[DBConfig]:  # noqa: PLR0911, PLR0912, C901, PLR0915
         """Import while in use"""
         if self == DB.Milvus:
             from .milvus.config import MilvusConfig
@@ -199,6 +217,11 @@ class DB(Enum):
             from .qdrant_cloud.config import QdrantConfig
 
             return QdrantConfig
+
+        if self == DB.QdrantLocal:
+            from .qdrant_local.config import QdrantLocalConfig
+
+            return QdrantLocalConfig
 
         if self == DB.WeaviateCloud:
             from .weaviate_cloud.config import WeaviateConfig
@@ -270,6 +293,11 @@ class DB(Enum):
 
             return MongoDBConfig
 
+        if self == DB.OceanBase:
+            from .oceanbase.config import OceanBaseConfig
+
+            return OceanBaseConfig
+
         if self == DB.MariaDB:
             from .mariadb.config import MariaDBConfig
 
@@ -293,6 +321,11 @@ class DB(Enum):
             from .vectorx.config import VectorXConfig
 
             return VectorXConfig
+
+        if self == DB.LanceDB:
+            from .lancedb.config import LanceDBConfig
+
+            return LanceDBConfig
 
         msg = f"Unknown DB: {self.name}"
         raise ValueError(msg)
@@ -320,6 +353,11 @@ class DB(Enum):
             from .qdrant_cloud.config import QdrantIndexConfig
 
             return QdrantIndexConfig
+
+        if self == DB.QdrantLocal:
+            from .qdrant_local.config import QdrantLocalIndexConfig
+
+            return QdrantLocalIndexConfig
 
         if self == DB.WeaviateCloud:
             from .weaviate_cloud.config import WeaviateIndexConfig
@@ -376,6 +414,11 @@ class DB(Enum):
 
             return MongoDBIndexConfig
 
+        if self == DB.OceanBase:
+            from .oceanbase.config import _oceanbase_case_config
+
+            return _oceanbase_case_config.get(index_type)
+
         if self == DB.MariaDB:
             from .mariadb.config import _mariadb_case_config
 
@@ -390,6 +433,11 @@ class DB(Enum):
             from .vespa.config import VespaHNSWConfig
 
             return VespaHNSWConfig
+
+        if self == DB.LanceDB:
+            from .lancedb.config import _lancedb_case_config
+
+            return _lancedb_case_config.get(index_type)
 
         # DB.Pinecone, DB.Chroma, DB.Redis
         return EmptyDBCaseConfig
