@@ -38,6 +38,7 @@ class DB(Enum):
     MemoryDB = "MemoryDB"
     Chroma = "Chroma"
     AWSOpenSearch = "OpenSearch"
+    OSSOpenSearch = "OSSOpenSearch"
     AliyunElasticsearch = "AliyunElasticsearch"
     MariaDB = "MariaDB"
     Test = "test"
@@ -49,6 +50,7 @@ class DB(Enum):
     LanceDB = "LanceDB"
     OceanBase = "OceanBase"
     VectorX = "VectorX"
+    S3Vectors = "S3Vectors"
 
     @property
     def init_cls(self) -> type[VectorDB]:  # noqa: PLR0911, PLR0912, C901, PLR0915
@@ -128,6 +130,11 @@ class DB(Enum):
 
             return AWSOpenSearch
 
+        if self == DB.OSSOpenSearch:
+            from .oss_opensearch.oss_opensearch import OSSOpenSearch
+
+            return OSSOpenSearch
+
         if self == DB.Clickhouse:
             from .clickhouse.clickhouse import Clickhouse
 
@@ -186,6 +193,11 @@ class DB(Enum):
             from .lancedb.lancedb import LanceDB
 
             return LanceDB
+
+        if self == DB.S3Vectors:
+            from .s3_vectors.s3_vectors import S3Vectors
+
+            return S3Vectors
 
         msg = f"Unknown DB: {self.name}"
         raise ValueError(msg)
@@ -268,6 +280,11 @@ class DB(Enum):
 
             return AWSOpenSearchConfig
 
+        if self == DB.OSSOpenSearch:
+            from .oss_opensearch.config import OSSOpenSearchConfig
+
+            return OSSOpenSearchConfig
+
         if self == DB.Clickhouse:
             from .clickhouse.config import ClickhouseConfig
 
@@ -327,6 +344,11 @@ class DB(Enum):
 
             return LanceDBConfig
 
+        if self == DB.S3Vectors:
+            from .s3_vectors.config import S3VectorsConfig
+
+            return S3VectorsConfig
+
         msg = f"Unknown DB: {self.name}"
         raise ValueError(msg)
 
@@ -378,6 +400,11 @@ class DB(Enum):
             from .aws_opensearch.config import AWSOpenSearchIndexConfig
 
             return AWSOpenSearchIndexConfig
+
+        if self == DB.OSSOpenSearch:
+            from .oss_opensearch.config import OSSOpenSearchIndexConfig
+
+            return OSSOpenSearchIndexConfig
 
         if self == DB.Clickhouse:
             from .clickhouse.config import ClickhouseHNSWConfig
@@ -438,6 +465,11 @@ class DB(Enum):
             from .lancedb.config import _lancedb_case_config
 
             return _lancedb_case_config.get(index_type)
+
+        if self == DB.S3Vectors:
+            from .s3_vectors.config import S3VectorsIndexConfig
+
+            return S3VectorsIndexConfig
 
         # DB.Pinecone, DB.Chroma, DB.Redis
         return EmptyDBCaseConfig
