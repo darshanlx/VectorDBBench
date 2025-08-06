@@ -20,6 +20,7 @@ from ..backend.clients.vespa.cli import Vespa
 from ..backend.clients.weaviate_cloud.cli import Weaviate
 from ..backend.clients.zilliz_cloud.cli import ZillizAutoIndex
 from ..backend.clients.vectorx.cli import VectorX
+# from ..backend.clients.facebook_myrocks.cli import F
 from .batch_cli import BatchCli
 from .cli import cli
 
