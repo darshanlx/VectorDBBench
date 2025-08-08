@@ -902,7 +902,7 @@ class FacebookMyRocks(VectorDB):
         self.conn.commit()  # Better to use connection's commit method
         self.cursor.execute("FLUSH TABLES")
 
-    def _vector_to_json(v) -> str:
+    def _vector_to_json(self, v) -> str:
         """Convert vector to JSON string format"""
         return json.dumps(v.tolist() if isinstance(v, np.ndarray) else v)
     
@@ -1057,10 +1057,10 @@ class FacebookMyRocks(VectorDB):
         try:
             batch_data = []
             for i in range(len(embeddings)):
-                vector_json = self.vector_to_json(embeddings[i])
+                vector_json = self._vector_to_json(embeddings[i])
                 name = f"cohere_vector_{metadata[i]}"
                 label = labels_data[i] if labels_data else None
-                batch_data.append(int(metadata[i]), vector_json, name, label)
+                batch_data.append((int(metadata[i]), vector_json, name, label))
 
             self.cursor.executemany(self.insert_sql, batch_data)
             self.conn.commit()
