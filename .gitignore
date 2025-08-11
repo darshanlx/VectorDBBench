@@ -16,3 +16,5 @@ dataset/
 benchmark_logs.txt
 commands.txt
 past_vecx_res/
+mysqld.log
+.python-version
