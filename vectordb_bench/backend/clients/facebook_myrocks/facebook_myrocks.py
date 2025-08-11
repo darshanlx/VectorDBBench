@@ -794,6 +794,7 @@ import mysql.connector
 from mysql.connector import Error
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 class FacebookMyRocks(VectorDB):
     def __init__(
@@ -985,7 +986,9 @@ class FacebookMyRocks(VectorDB):
         elif self.metric_type == "COSINE":
             # For cosine, use FB_VECTOR_NORMALIZE_L2 and FB_VECTOR_IP
             if self.vector_type == "BLOB":
-                self.distance_expr = "FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2(v), FB_VECTOR_NORMALIZE_L2(FB_VECTOR_JSON_TO_BLOB(%s)))"
+                # self.distance_expr = "FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2(v), FB_VECTOR_NORMALIZE_L2(FB_VECTOR_JSON_TO_BLOB(%s)))"
+                self.distance_expr = "FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2(v), FB_VECTOR_NORMALIZE_L2(%s))"
+                print("Expr")
             else:
                 self.distance_expr = "FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2(v), FB_VECTOR_NORMALIZE_L2(%s))"
             self.order_direction = "DESC"
@@ -1088,25 +1091,44 @@ class FacebookMyRocks(VectorDB):
         query_json = self._vector_to_json(query)
         
         try:
-            if filters:
-                where_clause, filter_params = self._build_where_clause(filters)
-                sql = self.select_sql_template.format(
-                    table_name=self.table_name,
-                    WHERE_CLAUSE=where_clause,
-                    distance_expr=self.distance_expr,  
-                    order_direction=self.order_direction
-                )
-                # Fix parameter order: filter params first, then query, then k
-                params = [*filter_params, query_json, k]
-            else:
-                sql = self.select_sql
-                params = [query_json, k]
+            # if filters:
+            #     where_clause, filter_params = self._build_where_clause(filters)
+            #     sql = self.select_sql_template.format(
+            #         table_name=self.table_name,
+            #         WHERE_CLAUSE=where_clause,
+            #         distance_expr=self.distance_expr,  
+            #         order_direction=self.order_direction
+            #     )
+            #     # Fix parameter order: filter params first, then query, then k
+            #     params = [*filter_params, query_json, k]
+            # else:
+        #     sql = self.select_sql
+        #     params = [query_json, k]
                 
-            self.cursor.execute(sql, params)
-            return [id for (id,) in self.cursor.fetchall()]
+        #     self.cursor.execute(sql, params)
+        #     return [id for (id,) in self.cursor.fetchall()]
             
+        # except Exception as e:
+        #     log.warning(f"Failed to search embeddings: {e}")
+        #     return []
+            sql = self.select_sql
+            params = [query_json, k]
+            
+            log.debug(f"Executing SQL: {sql}")
+            log.debug(f"With params: {params}")
+
+            self.cursor.execute(sql, params)
+
+            rows = self.cursor.fetchall()
+            log.debug(f"Fetched rows: {rows}")
+
+            ids = [id for (id,) in rows]
+            log.debug(f"Extracted IDs: {ids}")
+
+            return ids
+
         except Exception as e:
-            log.warning(f"Failed to search embeddings: {e}")
+            log.warning(f"Failed to search embeddings: {e}", exc_info=True)
             return []
 
 
