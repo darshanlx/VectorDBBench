@@ -13,7 +13,7 @@ d = 768                          # Cohere embedding dimension
 nlist = 1024                     # Number of clusters
 m = 64                           # Sub-vectors (768/64=12D per sub-vector)
 nbits = 8                        # Bits per sub-vector (256 centroids per subquantizer)
-train_size = 100000              # Number of vectors for training
+train_size = 298000             # Number of vectors for training
 index_id = "cohere_wiki_ivfpq"   # Unique ID for MySQL
 
 print("=== IVFPQ Index Configuration ===")
@@ -140,7 +140,7 @@ full_sql = (
 )
 
 # Save to file
-with open("cohere_wiki_ivfpq.sql", "w") as f:
+with open("cohere_wiki_ivfpq2.sql", "w") as f:
     f.write(full_sql)
 
 print(f"SQL for auxiliary table saved to cohere_wiki_ivfpq.sql")
