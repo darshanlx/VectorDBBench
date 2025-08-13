@@ -783,6 +783,7 @@
 
 import logging
 import json
+import pickle
 
 import numpy as np
 from contextlib import contextmanager
@@ -822,6 +823,33 @@ class FacebookMyRocks(VectorDB):
 
         # construct basic units
         self.conn, self.cursor = self._create_connection()
+
+        # Drop table if exists
+        self.cursor.execute("DROP TABLE IF EXISTS VECTORDB_DATA")
+        
+        # Drop user if exists
+        self.cursor.execute("DROP USER IF EXISTS 'admin:sys.database'")
+
+        if self.index_type in ['ivfflat', 'ivfpq']:
+            # Create the VECTORDB_DATA table using the dedicated function
+            self._create_vectordb_data_table()
+             
+            # Create user
+            self.cursor.execute("CREATE USER 'admin:sys.database'")
+
+            # Grant privileges
+            self.cursor.execute("GRANT ALL ON *.* TO 'admin:sys.database'@'%'")
+
+            # Flush privileges
+            self.cursor.execute("FLUSH PRIVILEGES")
+
+            if self.index_type == "ivfflat":
+                self._execute_sql_file("cohere_wiki_ivfflat.sql")
+            else:
+                self._execute_sql_file("cohere_wiki_ivfpq.sql")
+
+            # Commit all changes
+            self.conn.commit()
 
 
         self._drop_table(self.table_name)
@@ -891,6 +919,55 @@ class FacebookMyRocks(VectorDB):
 
         self.cursor.execute(create_table_sql)
         self.conn.commit()
+
+    def _create_vectordb_data_table(self):
+        assert self.conn is not None, "Connection is not initialized"
+        assert self.cursor is not None, "Cursor is not initialized"
+
+        create_table_sql = f"""
+            CREATE TABLE VECTORDB_DATA (
+                id VARCHAR(128) NOT NULL,
+                type VARCHAR(128) NOT NULL,
+                seqno INT NOT NULL,
+                value JSON NOT NULL,
+                PRIMARY KEY (id, type, seqno)
+            )
+        """
+        
+        self.cursor.execute(create_table_sql)
+        self.conn.commit()
+
+    def _execute_sql_file(self, sql_file_path):
+        """
+        Execute SQL commands from a file (alternative to MySQL 'source' command)
+        Note: This reads the file and executes statements, but 'source' itself 
+        cannot be run through cursor.execute()
+        """
+        assert self.conn is not None, "Connection is not initialized"
+        assert self.cursor is not None, "Cursor is not initialized"
+        
+        try:
+            with open(sql_file_path, 'r', encoding='utf-8') as file:
+                sql_content = file.read()
+                
+            # Remove comments and split by semicolon
+            statements = []
+            for line in sql_content.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('--') and not line.startswith('#'):
+                    statements.append(line)
+            
+            full_sql = ' '.join(statements)
+            statements = [stmt.strip() for stmt in full_sql.split(';') if stmt.strip()]
+            
+            for statement in statements:
+                if statement:
+                    self.cursor.execute(statement)
+                    
+        except FileNotFoundError:
+            raise FileNotFoundError(f"SQL file not found: {sql_file_path}")
+        except Exception as e:
+            raise Exception(f"Error executing SQL file {sql_file_path}: {str(e)}")
 
     def _drop_table(self, table_name):
         assert self.conn is not None, "Connection is not initialized"
@@ -1052,6 +1129,43 @@ class FacebookMyRocks(VectorDB):
         """Insert embeddings into the database.
         Should call self.init() first.
         """
+        # try:
+        #     # Instead of inserting to database, save the embeddings
+        #     embedding_data = {
+        #         'embeddings': embeddings,
+        #         'metadata': metadata,
+        #         'labels': labels_data,
+        #         'count': len(embeddings)
+        #     }
+            
+        #     # Save to pickle file (efficient for numpy arrays)
+        #     with open("original_cohere_vector_embeddings.pkl", 'wb') as f:
+        #         pickle.dump(embedding_data, f)
+            
+        #     print(f"Saved {len(embeddings)} embeddings")
+
+            
+        # except Exception as e:
+        #     print(f"Failed to save embeddings to file, error: {e}")
+        try:
+            embedding_data = {
+                'embeddings': embeddings,
+                'metadata': metadata,
+                'labels': labels_data,
+                'count': len(embeddings)
+            }
+            
+            # Use the fixed append function
+            success = self._append_to_pickle_file_v2(embedding_data, "accumulated_cohere_embeddings.pkl")
+            
+            if success:
+                print(f"Successfully processed batch of {len(embeddings)} embeddings")
+          
+                
+        except Exception as e:
+            print(f"Failed to process embeddings batch, error: {e}")
+ 
+
         assert self.conn is not None, "Connection is not initialized"
         assert self.cursor is not None, "Cursor is not initialized"
 
@@ -1131,6 +1245,40 @@ class FacebookMyRocks(VectorDB):
             log.warning(f"Failed to search embeddings: {e}", exc_info=True)
             return []
 
+
+    def _append_to_pickle_file_v2(self,new_data, filename="accumulated_embeddings.pkl"):
+        """Append new embedding data to existing pickle file - version 2."""
+        import os
+        try:
+            # Try to load existing data
+            if os.path.exists(filename):
+                with open(filename, 'rb') as f:
+                    existing_data = pickle.load(f)
+            else:
+                existing_data = {}
+            
+            # Use setdefault to create empty lists if keys don't exist
+            existing_data.setdefault('embeddings', []).extend(new_data['embeddings'])
+            existing_data.setdefault('metadata', []).extend(new_data['metadata'])
+            
+            # Handle labels
+            if new_data.get('labels'):
+                existing_data.setdefault('labels', []).extend(new_data['labels'])
+            
+            # Update count
+            existing_data['count'] = len(existing_data['embeddings'])
+            
+            # Save back to pickle file
+            with open(filename, 'wb') as f:
+                pickle.dump(existing_data, f)
+                
+            print(f"Successfully appended {len(new_data['embeddings'])} embeddings")
+            print(f"Total embeddings in file: {existing_data['count']}")
+            return True
+            
+        except Exception as e:
+            print(f"Failed to append to pickle file, error: {e}")
+            return False
 
 
 

@@ -24,6 +24,9 @@ print(f"Loading {train_size} vectors for training...")
 train_batch = list(itertools.islice(streamed_ds, train_size))
 train_vectors = np.stack([rec['emb'] for rec in train_batch], axis=0).astype('float32')
 
+print(train_vectors[0])
+
+
 # Normalize vectors for cosine similarity
 faiss.normalize_L2(train_vectors)
 
@@ -71,7 +74,7 @@ print(f"PQ codebooks shape: {codebooks.shape}")
 metadata_sql = f"""
 INSERT INTO VECTORDB_DATA VALUES (
   '{index_id}', 'metadata', 0,
-  JSON_OBJECT('version', 1, 'nlist', {nlist}, 'pq_m', {m}, 'pq_nbits', 8)
+  JSON_OBJECT('version', 1, 'nlist', {nlist}, 'pq_m', {m}, 'pq_nbits', {nbits})
 );
 """
 
