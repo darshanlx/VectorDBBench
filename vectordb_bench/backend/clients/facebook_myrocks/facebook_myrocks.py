@@ -844,9 +844,9 @@ class FacebookMyRocks(VectorDB):
             self.cursor.execute("FLUSH PRIVILEGES")
 
             if self.index_type == "ivfflat":
-                self._execute_sql_file("cohere_wiki_ivfflat.sql")
+                self._execute_sql_file("cohere_wiki_ivfflat2.sql")
             else:
-                self._execute_sql_file("cohere_wiki_ivfpq.sql")
+                self._execute_sql_file("cohere_wiki_ivfpq2.sql")
 
             # Commit all changes
             self.conn.commit()
@@ -1129,8 +1129,8 @@ class FacebookMyRocks(VectorDB):
         """Insert embeddings into the database.
         Should call self.init() first.
         """
+   
         # try:
-        #     # Instead of inserting to database, save the embeddings
         #     embedding_data = {
         #         'embeddings': embeddings,
         #         'metadata': metadata,
@@ -1138,32 +1138,15 @@ class FacebookMyRocks(VectorDB):
         #         'count': len(embeddings)
         #     }
             
-        #     # Save to pickle file (efficient for numpy arrays)
-        #     with open("original_cohere_vector_embeddings.pkl", 'wb') as f:
-        #         pickle.dump(embedding_data, f)
+        #     # Use the fixed append function
+        #     success = self._append_to_pickle_file_v2(embedding_data, "accumulated_cohere_embeddings.pkl")
             
-        #     print(f"Saved {len(embeddings)} embeddings")
-
-            
-        # except Exception as e:
-        #     print(f"Failed to save embeddings to file, error: {e}")
-        try:
-            embedding_data = {
-                'embeddings': embeddings,
-                'metadata': metadata,
-                'labels': labels_data,
-                'count': len(embeddings)
-            }
-            
-            # Use the fixed append function
-            success = self._append_to_pickle_file_v2(embedding_data, "accumulated_cohere_embeddings.pkl")
-            
-            if success:
-                print(f"Successfully processed batch of {len(embeddings)} embeddings")
+        #     if success:
+        #         print(f"Successfully processed batch of {len(embeddings)} embeddings")
           
                 
-        except Exception as e:
-            print(f"Failed to process embeddings batch, error: {e}")
+        # except Exception as e:
+        #     print(f"Failed to process embeddings batch, error: {e}")
  
 
         assert self.conn is not None, "Connection is not initialized"
@@ -1186,6 +1169,10 @@ class FacebookMyRocks(VectorDB):
         except Exception as e:
             log.warning(f"Failed to insert data into Vector table ({self.table_name}), error: {e}")
             return 0, e
+        # try:
+        #     return len(metadata), None
+        # except Exception as e:
+        #     return 0,e
         
 
     def search_embedding(
