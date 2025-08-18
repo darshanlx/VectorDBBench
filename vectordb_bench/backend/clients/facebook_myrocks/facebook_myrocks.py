@@ -920,6 +920,34 @@ class FacebookMyRocks(VectorDB):
         self.cursor.execute(create_table_sql)
         self.conn.commit()
 
+
+    def _train_vector_index(self):
+        """Train vector index after data insertion (for IVF indexes)"""
+        if self.index_type in ['ivfflat', 'ivfpq']:
+            print("Training vector index...")
+            try:
+                # Force full table scan for proper index training
+                self.cursor.execute("SET GLOBAL rocksdb_table_stats_use_table_scan = ON")
+                self.cursor.execute(f"ANALYZE TABLE {self.table_name}")
+                self.cursor.execute("SET GLOBAL rocksdb_table_stats_use_table_scan = DEFAULT")
+                
+                # Check if training was successful
+                self.cursor.execute(f"""
+                    SELECT NTOTAL, AVG_LIST_SIZE 
+                    FROM INFORMATION_SCHEMA.ROCKSDB_VECTOR_INDEX 
+                    WHERE TABLE_NAME = '{self.table_name}'
+                """)
+                result = self.cursor.fetchone()
+                
+                if result and result[0] > 0:
+                    print(f"Index training successful: NTOTAL={result[0]}, AVG_LIST_SIZE={result[1]}")
+                else:
+                    print("Warning: Index training may have failed - NTOTAL is 0")
+                    
+            except Exception as e:
+                print(f"Warning: Index training failed: {e}")
+
+
     def _create_vectordb_data_table(self):
         assert self.conn is not None, "Connection is not initialized"
         assert self.cursor is not None, "Cursor is not initialized"
@@ -1139,7 +1167,7 @@ class FacebookMyRocks(VectorDB):
         #     }
             
         #     # Use the fixed append function
-        #     success = self._append_to_pickle_file_v2(embedding_data, "accumulated_cohere_embeddings.pkl")
+        #     success = self._append_to_pickle_file_v2(embedding_data, "accumulated_cohere_embeddings2.pkl")
             
         #     if success:
         #         print(f"Successfully processed batch of {len(embeddings)} embeddings")
@@ -1164,6 +1192,18 @@ class FacebookMyRocks(VectorDB):
 
             self.cursor.executemany(self.insert_sql, batch_data)
             self.conn.commit()
+
+            # Check if we have exactly 1M vectors before training index
+            # cursor = self.conn.cursor()
+            self.cursor.execute(f"SELECT COUNT(*) FROM {self.table_name}")
+            vector_count = self.cursor.fetchone()[0]
+
+            if vector_count == 1000000:
+                print(f"Found exactly 1,000,000 vectors. Training vector index...")
+                # Train index after all data is inserted
+                self._train_vector_index()
+            else:
+                print(f"Vector count is {vector_count}, not 1,000,000. Skipping index training.")
 
             return len(metadata), None
         except Exception as e:

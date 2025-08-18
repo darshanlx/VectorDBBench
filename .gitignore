@@ -20,3 +20,4 @@ mysqld.log
 .python-version
 extra.py
 accumulated_cohere_embeddings.pkl
+accumulated_cohere_embeddings2.pkl
