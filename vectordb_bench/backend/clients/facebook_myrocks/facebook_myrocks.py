@@ -1041,9 +1041,11 @@ class FacebookMyRocks(VectorDB):
         self.conn.commit()  # Better to use connection's commit method
         self.cursor.execute("FLUSH TABLES")
 
-    def _vector_to_json(self, v) -> str:
-        """Convert vector to JSON string format"""
-        return json.dumps(v.tolist() if isinstance(v, np.ndarray) else v)
+    def _vector_to_json(self, vector) -> str:
+        """Convert vector to JSON string format (works with FB_VECTOR_IP)"""
+        if isinstance(vector, np.ndarray):
+            vector = vector.tolist()
+        return json.dumps(vector)
     
     def _build_where_clause(self, filters: dict) -> tuple[str, list]:  # Remove the asterisks
         """Build WHERE clause and parameters from filters dict.
@@ -1256,11 +1258,11 @@ class FacebookMyRocks(VectorDB):
         **kwargs,
     ) -> list[int]:
         
-        if self.conn==None or self.cursor==None:
-            self._create_connection()
+        # if self.conn==None or self.cursor==None:
+        con, cur = self._create_connection()
 
-        assert self.conn is not None, "Connection is not initialized"
-        assert self.cursor is not None, "Cursor is not initialized"
+        assert con is not None, "Connection is not initialized"
+        assert cur is not None, "Cursor is not initialized"
         
         query_json = self._vector_to_json(query)
         
@@ -1285,15 +1287,25 @@ class FacebookMyRocks(VectorDB):
         # except Exception as e:
         #     log.warning(f"Failed to search embeddings: {e}")
         #     return []
-            sql = self.select_sql
+            # sql = self.select_sql
+            if self.metric_type == "COSINE" and self.vector_type == "JSON":
+                sql = """
+                    SELECT id FROM vec_collection 
+                    ORDER BY FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2(v), FB_VECTOR_NORMALIZE_L2(%s)) DESC 
+                    LIMIT %s
+                """
+                print("cosine and json")
+            else:
+                print("Not configured yet")
+                return
             params = [query_json, k]
-            
+              
             log.debug(f"Executing SQL: {sql}")
             log.debug(f"With params: {params}")
 
-            self.cursor.execute(sql, params)
+            cur.execute(sql, params)
 
-            rows = self.cursor.fetchall()
+            rows = cur.fetchall()
             log.debug(f"Fetched rows: {rows}")
 
             ids = [id for (id,) in rows]
