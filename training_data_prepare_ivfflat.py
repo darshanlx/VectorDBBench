@@ -3,6 +3,7 @@ import numpy as np
 from datasets import load_dataset
 import itertools
 import json
+import pickle
 
 d = 768                          # Cohere embedding dimension
 nlist = 1024                     # Number of clusters
@@ -11,7 +12,7 @@ train_size = 298000             # Number of vectors for training
 index_id = "cohere_wiki_ivfflat"   # Unique ID for MySQL
 
 print("=== IVFFlat Index Configuration ===")
-print(f"Dimension (d): {d}")x
+print(f"Dimension (d): {d}")
 print(f"Number of clusters (nlist): {nlist}")
 print(f"Training size: {train_size}")
 print(f"Index ID: {index_id}")
@@ -51,7 +52,7 @@ index = faiss.IndexIVFFlat(quantizer, d, nlist, faiss.METRIC_INNER_PRODUCT)
 print("Training Started")
 
 # Train on subset (100K normalized vectors)
-index.train(train_vectors[:100000])
+index.train(train_vectors)
 
 # Extract index data for MySQL
 print("Extracting index data...")
@@ -90,8 +91,8 @@ full_sql = (
 )
 
 # Save to file
-with open("cohere_wiki_ivfflat.sql", "w") as f:
+with open("cohere_wiki_ivfflat2.sql", "w") as f:
     f.write(full_sql)
 
-print(f"SQL for auxiliary table saved to cohere_wiki_ivfflat.sql")
+print(f"SQL for auxiliary table saved to cohere_wiki_ivfflat2.sql")
 print(f"Total centroids: {nlist}")
