@@ -1105,10 +1105,22 @@ class FacebookMyRocks(VectorDB):
         """create and destoy connections to database."""
         self.conn, self.cursor = self._create_connection()
 
+        # if self.vector_type == "BLOB":
+        #     self.insert_sql = f"INSERT INTO {self.table_name} (id, v, name, label) VALUES (%s, FB_VECTOR_JSON_TO_BLOB(%s), %s, %s)"
+        # else:  # JSON
+        #     self.insert_sql = f"INSERT INTO {self.table_name} (id, v, name, label) VALUES (%s, %s, %s, %s)"
         if self.vector_type == "BLOB":
-            self.insert_sql = f"INSERT INTO {self.table_name} (id, v, name, label) VALUES (%s, FB_VECTOR_JSON_TO_BLOB(%s), %s, %s)"
+            # Pre-normalize during insertion for optimal cosine similarity performance
+            self.insert_sql = f"""
+                INSERT INTO {self.table_name} (id, v, name, label) 
+                VALUES (%s, FB_VECTOR_JSON_TO_BLOB(FB_VECTOR_NORMALIZE_L2(%s)), %s, %s)
+            """
         else:  # JSON
-            self.insert_sql = f"INSERT INTO {self.table_name} (id, v, name, label) VALUES (%s, %s, %s, %s)"
+            # Pre-normalize JSON vectors during insertion
+            self.insert_sql = f"""
+                INSERT INTO {self.table_name} (id, v, name, label) 
+                VALUES (%s, FB_VECTOR_NORMALIZE_L2(%s), %s, %s)
+            """
 
         # Build search SQL based on metric type
         if self.metric_type == "L2":
@@ -1288,34 +1300,85 @@ class FacebookMyRocks(VectorDB):
         #     log.warning(f"Failed to search embeddings: {e}")
         #     return []
             # sql = self.select_sql
+            # if self.metric_type == "COSINE" and self.vector_type == "JSON":
+            #     sql = """
+            #         SELECT id FROM vec_collection 
+            #         ORDER BY FB_VECTOR_IP(v, FB_VECTOR_NORMALIZE_L2(%s)) DESC 
+            #         LIMIT %s
+            #     """
+            #     print("cosine and json")
+            # else:
+            #     print("Not configured yet")
+            #     return
+            # params = [query_json, k]
+              
+            # log.debug(f"Executing SQL: {sql}")
+            # log.debug(f"With params: {params}")
+
+            # cur.execute(sql, params)
+
+            # rows = cur.fetchall()
+            # log.debug(f"Fetched rows: {rows}")
+
+            # ids = [id for (id,) in rows]
+            # log.debug(f"Extracted IDs: {ids}")
+
+            # return ids
             if self.metric_type == "COSINE" and self.vector_type == "JSON":
-                sql = """
+            
+                # Step 1: Normalize the query vector
+                normalize_sql = "SELECT FB_VECTOR_NORMALIZE_L2(%s) as normalized_query"
+                
+                log.debug(f"Step 1 - Normalizing query: {normalize_sql}")
+                
+                cur.execute(normalize_sql, [query_json])
+                result = cur.fetchone()
+                
+                if not result:
+                    log.error("Failed to normalize query vector")
+                    return []
+                
+                normalized_query = result[0]
+                log.debug(f"Step 1 complete - Normalized query")
+                
+                # Step 2: Execute main search with pre-normalized query
+                # This should use the index because 'v' is the raw column
+                main_sql = """
                     SELECT id FROM vec_collection 
-                    ORDER BY FB_VECTOR_IP(FB_VECTOR_NORMALIZE_L2(v), FB_VECTOR_NORMALIZE_L2(%s)) DESC 
+                    ORDER BY FB_VECTOR_IP(v, %s) DESC 
                     LIMIT %s
                 """
-                print("cosine and json")
+                
+                params = [normalized_query, k]
+                
+                log.debug(f"Step 2 - Executing main search: {main_sql}")
+                log.debug(f"With normalized query and k={k}")
+                
+                cur.execute(main_sql, params)
+                rows = cur.fetchall()
+                
+                log.debug(f"Search completed - Found {len(rows)} results")
+                
+                # Extract IDs
+                ids = [row[0] for row in rows]
+                return ids
+            
             else:
                 print("Not configured yet")
-                return
-            params = [query_json, k]
-              
-            log.debug(f"Executing SQL: {sql}")
-            log.debug(f"With params: {params}")
-
-            cur.execute(sql, params)
-
-            rows = cur.fetchall()
-            log.debug(f"Fetched rows: {rows}")
-
-            ids = [id for (id,) in rows]
-            log.debug(f"Extracted IDs: {ids}")
-
-            return ids
+                return []
 
         except Exception as e:
             log.warning(f"Failed to search embeddings: {e}", exc_info=True)
             return []
+        
+        finally:
+            # CRITICAL: Always close connections to prevent leaks
+            if cur:
+                cur.close()
+                log.debug("Cursor closed")
+            if con:
+                con.close()
+                log.debug("Connection closed")
 
 
     def _append_to_pickle_file_v2(self,new_data, filename="accumulated_embeddings.pkl"):
