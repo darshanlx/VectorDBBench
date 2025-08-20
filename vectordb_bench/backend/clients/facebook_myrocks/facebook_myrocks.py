@@ -824,36 +824,36 @@ class FacebookMyRocks(VectorDB):
         # construct basic units
         self.conn, self.cursor = self._create_connection()
 
-        # Drop table if exists
-        self.cursor.execute("DROP TABLE IF EXISTS VECTORDB_DATA")
+        # # Drop table if exists
+        # self.cursor.execute("DROP TABLE IF EXISTS VECTORDB_DATA")
         
-        # Drop user if exists
-        self.cursor.execute("DROP USER IF EXISTS 'admin:sys.database'")
+        # # Drop user if exists
+        # self.cursor.execute("DROP USER IF EXISTS 'admin:sys.database'")
 
-        if self.index_type in ['ivfflat', 'ivfpq']:
-            # Create the VECTORDB_DATA table using the dedicated function
-            self._create_vectordb_data_table()
+        # if self.index_type in ['ivfflat', 'ivfpq']:
+        #     # Create the VECTORDB_DATA table using the dedicated function
+        #     self._create_vectordb_data_table()
              
-            # Create user
-            self.cursor.execute("CREATE USER 'admin:sys.database'")
+        #     # Create user
+        #     self.cursor.execute("CREATE USER 'admin:sys.database'")
 
-            # Grant privileges
-            self.cursor.execute("GRANT ALL ON *.* TO 'admin:sys.database'@'%'")
+        #     # Grant privileges
+        #     self.cursor.execute("GRANT ALL ON *.* TO 'admin:sys.database'@'%'")
 
-            # Flush privileges
-            self.cursor.execute("FLUSH PRIVILEGES")
+        #     # Flush privileges
+        #     self.cursor.execute("FLUSH PRIVILEGES")
 
-            if self.index_type == "ivfflat":
-                self._execute_sql_file("cohere_wiki_ivfflat2.sql")
-            else:
-                self._execute_sql_file("cohere_wiki_ivfpq2.sql")
+        #     if self.index_type == "ivfflat":
+        #         self._execute_sql_file("cohere_wiki_ivfflat2.sql")
+        #     else:
+        #         self._execute_sql_file("cohere_wiki_ivfpq2.sql")
 
-            # Commit all changes
-            self.conn.commit()
+        #     # Commit all changes
+        #     self.conn.commit()
 
 
-        self._drop_table(self.table_name)
-        self._create_table(self.dimension)
+        # self._drop_table(self.table_name)
+        # self._create_table(self.dimension)
 
         self.cursor.close()
         self.conn.close()
@@ -1109,18 +1109,32 @@ class FacebookMyRocks(VectorDB):
         #     self.insert_sql = f"INSERT INTO {self.table_name} (id, v, name, label) VALUES (%s, FB_VECTOR_JSON_TO_BLOB(%s), %s, %s)"
         # else:  # JSON
         #     self.insert_sql = f"INSERT INTO {self.table_name} (id, v, name, label) VALUES (%s, %s, %s, %s)"
-        if self.vector_type == "BLOB":
-            # Pre-normalize during insertion for optimal cosine similarity performance
-            self.insert_sql = f"""
-                INSERT INTO {self.table_name} (id, v, name, label) 
-                VALUES (%s, FB_VECTOR_JSON_TO_BLOB(FB_VECTOR_NORMALIZE_L2(%s)), %s, %s)
-            """
-        else:  # JSON
-            # Pre-normalize JSON vectors during insertion
-            self.insert_sql = f"""
-                INSERT INTO {self.table_name} (id, v, name, label) 
-                VALUES (%s, FB_VECTOR_NORMALIZE_L2(%s), %s, %s)
-            """
+        if self.metric_type == "COSINE":
+            if self.vector_type == "BLOB":
+                # Pre-normalize during insertion for optimal cosine similarity performance
+                self.insert_sql = f"""
+                    INSERT INTO {self.table_name} (id, v, name, label) 
+                    VALUES (%s, FB_VECTOR_JSON_TO_BLOB(FB_VECTOR_NORMALIZE_L2(%s)), %s, %s)
+                """
+            else:  # JSON
+                # Pre-normalize JSON vectors during insertion
+                self.insert_sql = f"""
+                    INSERT INTO {self.table_name} (id, v, name, label) 
+                    VALUES (%s, FB_VECTOR_NORMALIZE_L2(%s), %s, %s)
+                """
+        else:
+            if self.vector_type == "BLOB":
+                # Pre-normalize during insertion for optimal cosine similarity performance
+                self.insert_sql = f"""
+                    INSERT INTO {self.table_name} (id, v, name, label) 
+                    VALUES (%s, FB_VECTOR_JSON_TO_BLOB(%s), %s, %s)
+                """
+            else:  # JSON
+                # Pre-normalize JSON vectors during insertion
+                self.insert_sql = f"""
+                    INSERT INTO {self.table_name} (id, v, name, label) 
+                    VALUES (%s, %s, %s, %s)
+                """
 
         # Build search SQL based on metric type
         if self.metric_type == "L2":
@@ -1363,22 +1377,66 @@ class FacebookMyRocks(VectorDB):
                 ids = [row[0] for row in rows]
                 return ids
             
+            elif self.metric_type == "IP":
+
+                main_sql = """
+                    SELECT id FROM vec_collection 
+                    ORDER BY FB_VECTOR_IP(v, %s) DESC 
+                    LIMIT %s
+                """
+                
+                params = [query_json, k]
+                
+                log.debug(f"Executing main search: {main_sql}")
+                log.debug(f"With k={k}")
+                
+                cur.execute(main_sql, params)
+                rows = cur.fetchall()
+                
+                log.debug(f"Search completed - Found {len(rows)} results")
+                
+                # Extract IDs
+                ids = [row[0] for row in rows]
+                return ids
+            
+            elif self.metric_type == "L2":
+                main_sql = """
+                    SELECT id FROM vec_collection 
+                    ORDER BY FB_VECTOR_IP(v, %s)
+                    LIMIT %s
+                """
+                
+                params = [query_json, k]
+                
+                log.debug(f"Executing main search: {main_sql}")
+                log.debug(f"With k={k}")
+                
+                cur.execute(main_sql, params)
+                rows = cur.fetchall()
+                
+                log.debug(f"Search completed - Found {len(rows)} results")
+                
+                # Extract IDs
+                ids = [row[0] for row in rows]
+                return ids
+            
             else:
-                print("Not configured yet")
+                print("Invalid metric type")
                 return []
+
 
         except Exception as e:
             log.warning(f"Failed to search embeddings: {e}", exc_info=True)
             return []
         
-        finally:
-            # CRITICAL: Always close connections to prevent leaks
-            if cur:
-                cur.close()
-                log.debug("Cursor closed")
-            if con:
-                con.close()
-                log.debug("Connection closed")
+        # finally:
+        #     # CRITICAL: Always close connections to prevent leaks
+        #     if cur:
+        #         cur.close()
+        #         log.debug("Cursor closed")
+        #     if con:
+        #         con.close()
+        #         log.debug("Connection closed")
 
 
     def _append_to_pickle_file_v2(self,new_data, filename="accumulated_embeddings.pkl"):
