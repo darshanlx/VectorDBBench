@@ -7,11 +7,11 @@ import pickle
 
 # Configuration
 d = 768                          # Cohere embedding dimension
-nlist = 4096                     # Number of clusters (increased for better granularity)
+nlist = 1024                    # Number of clusters (increased for better granularity)
 m = 64                           # Sub-vectors (768/64=12D per sub-vector)
 nbits = 8                        # Bits per sub-vector (256 centroids per subquantizer)
-train_size = 500000              # Increased training size (recommended: 30-100x nlist)
-index_id = "cohere_wiki_ivfpq_ip_4k"   # Updated ID to reflect 4K clusters
+train_size = 298000             # Increased training size (recommended: 30-100x nlist)
+index_id = "cohere_wiki_ivfpq_ip_2k"   # Updated ID to reflect 4K clusters
 
 print("=== IVFPQ Index Configuration (Inner Product) ===")
 print(f"Dimension (d): {d}")
@@ -110,7 +110,7 @@ product_quantizer_sqls = []
 for m_i in range(m):
     for code in range(256):
         product_quantizer_sqls.append(
-            f"INSERT INTO VECTORDB_DATA VALUES ("
+            f"INSERT INTO VECTORDB_DATA_IP VALUES ("
             f"'{index_id}', 'product_quantizer', {m_i * 256 + code}, "
             f"'{json.dumps(codebooks[m_i, code].tolist())}'"  # Removed quotes around json.dumps
             f");"
@@ -125,7 +125,7 @@ full_sql = (
 )
 
 # Save to file
-with open("cohere_wiki_ivfpq_ip_4k.sql", "w") as f:
+with open("cohere_wiki_ivfpq_ip_2k.sql", "w") as f:
     f.write(full_sql)
 
 print(f"SQL for auxiliary table saved to cohere_wiki_ivfpq_ip_4k.sql")
