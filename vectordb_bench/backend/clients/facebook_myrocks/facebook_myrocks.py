@@ -784,6 +784,7 @@
 import logging
 import json
 import pickle
+import time
 
 import numpy as np
 from contextlib import contextmanager
@@ -815,45 +816,46 @@ class FacebookMyRocks(VectorDB):
         self.vector_type = db_config.get("vector_type", "BLOB")
         self.metric_type = db_config.get("metric_type", "COSINE")
         self.index_type = db_config.get("index_type", "flat")
-        self.table_name = "vec_collection"
-        self.trained_index_table = "VECTORDB_DATA"
-        self.trained_index_id = "cohere_wiki_ivfpq"
+        self.table_name = "vec_collection_ip"
+        self.trained_index_table = "VECTORDB_DATA_IP"
+        self.trained_index_id = "cohere_wiki_ivfpq_ip_4k"
         self.dimension = db_config.get("dimension", 768)
         self.name = "FacebookMyRocks"
 
         # construct basic units
         self.conn, self.cursor = self._create_connection()
+        print("DEBUG init")
 
-        # # Drop table if exists
-        # self.cursor.execute("DROP TABLE IF EXISTS VECTORDB_DATA")
+        # Drop table if exists
+        self.cursor.execute("DROP TABLE IF EXISTS VECTORDB_DATA_IP")
         
-        # # Drop user if exists
-        # self.cursor.execute("DROP USER IF EXISTS 'admin:sys.database'")
+        # Drop user if exists
+        self.cursor.execute("DROP USER IF EXISTS 'admin:sys.database'")
 
-        # if self.index_type in ['ivfflat', 'ivfpq']:
-        #     # Create the VECTORDB_DATA table using the dedicated function
-        #     self._create_vectordb_data_table()
+        if self.index_type in ['ivfflat', 'ivfpq']:
+            # Create the VECTORDB_DATA table using the dedicated function
+            self._create_vectordb_data_table()
              
-        #     # Create user
-        #     self.cursor.execute("CREATE USER 'admin:sys.database'")
+            # Create user
+            self.cursor.execute("CREATE USER 'admin:sys.database'")
 
-        #     # Grant privileges
-        #     self.cursor.execute("GRANT ALL ON *.* TO 'admin:sys.database'@'%'")
+            # Grant privileges
+            self.cursor.execute("GRANT ALL ON *.* TO 'admin:sys.database'@'%'")
 
-        #     # Flush privileges
-        #     self.cursor.execute("FLUSH PRIVILEGES")
+            # Flush privileges
+            self.cursor.execute("FLUSH PRIVILEGES")
 
-        #     if self.index_type == "ivfflat":
-        #         self._execute_sql_file("cohere_wiki_ivfflat2.sql")
-        #     else:
-        #         self._execute_sql_file("cohere_wiki_ivfpq2.sql")
+            if self.index_type == "ivfflat":
+                self._execute_sql_file("cohere_wiki_ivfflat2.sql")
+            else:
+                self._execute_sql_file("cohere_wiki_ivfpq_ip_4k.sql")
 
-        #     # Commit all changes
-        #     self.conn.commit()
+            # Commit all changes
+            self.conn.commit()
 
 
-        # self._drop_table(self.table_name)
-        # self._create_table(self.dimension)
+        self._drop_table(self.table_name)
+        self._create_table(self.dimension)
 
         self.cursor.close()
         self.conn.close()
@@ -986,7 +988,7 @@ class FacebookMyRocks(VectorDB):
         assert self.cursor is not None, "Cursor is not initialized"
 
         create_table_sql = f"""
-            CREATE TABLE VECTORDB_DATA (
+            CREATE TABLE VECTORDB_DATA_IP (
                 id VARCHAR(128) NOT NULL,
                 type VARCHAR(128) NOT NULL,
                 seqno INT NOT NULL,
@@ -1202,6 +1204,8 @@ class FacebookMyRocks(VectorDB):
         finally:
             self.cursor.close()
             self.conn.close()
+            print("DEBUG:closed in init context manager")
+            time.sleep(5)
             self.cursor = None
             self.conn = None
 
@@ -1247,7 +1251,7 @@ class FacebookMyRocks(VectorDB):
             batch_data = []
             for i in range(len(embeddings)):
                 vector_json = self._vector_to_json(embeddings[i])
-                name = f"cohere_vector_{metadata[i]}"
+                name = f"cohere_vector_ip_{metadata[i]}"
                 label = labels_data[i] if labels_data else None
                 batch_data.append((int(metadata[i]), vector_json, name, label))
 
@@ -1284,12 +1288,19 @@ class FacebookMyRocks(VectorDB):
         **kwargs,
     ) -> list[int]:
         
-        # if self.conn==None or self.cursor==None:
-        con, cur = self._create_connection()
+        if self.conn==None or self.cursor==None:
+            self._create_connection()
+        # con, cur = self._create_connection()
 
-        assert con is not None, "Connection is not initialized"
-        assert cur is not None, "Cursor is not initialized"
+        # assert con is not None, "Connection is not initialized"
+        # assert cur is not None, "Cursor is not initialized"
+        assert self.conn is not None, "Connection is not initialized"
+        assert self.cursor is not None, "Cursor is not initialized"
         
+        print("DEBUG search")
+
+        print("Query:", query[:8])
+
         query_json = self._vector_to_json(query)
         
         try:
@@ -1345,8 +1356,8 @@ class FacebookMyRocks(VectorDB):
                 
                 log.debug(f"Step 1 - Normalizing query: {normalize_sql}")
                 
-                cur.execute(normalize_sql, [query_json])
-                result = cur.fetchone()
+                self.cursor.execute(normalize_sql, [query_json])
+                result = self.cursor.fetchone()
                 
                 if not result:
                     log.error("Failed to normalize query vector")
@@ -1368,8 +1379,8 @@ class FacebookMyRocks(VectorDB):
                 log.debug(f"Step 2 - Executing main search: {main_sql}")
                 log.debug(f"With normalized query and k={k}")
                 
-                cur.execute(main_sql, params)
-                rows = cur.fetchall()
+                self.cursor.execute(main_sql, params)
+                rows = self.cursor.fetchall()
                 
                 log.debug(f"Search completed - Found {len(rows)} results")
                 
@@ -1380,7 +1391,7 @@ class FacebookMyRocks(VectorDB):
             elif self.metric_type == "IP":
 
                 main_sql = """
-                    SELECT id FROM vec_collection 
+                    SELECT id FROM vec_collection_ip 
                     ORDER BY FB_VECTOR_IP(v, %s) DESC 
                     LIMIT %s
                 """
@@ -1390,8 +1401,8 @@ class FacebookMyRocks(VectorDB):
                 log.debug(f"Executing main search: {main_sql}")
                 log.debug(f"With k={k}")
                 
-                cur.execute(main_sql, params)
-                rows = cur.fetchall()
+                self.cursor.execute(main_sql, params)
+                rows = self.cursor.fetchall()
                 
                 log.debug(f"Search completed - Found {len(rows)} results")
                 
@@ -1411,8 +1422,8 @@ class FacebookMyRocks(VectorDB):
                 log.debug(f"Executing main search: {main_sql}")
                 log.debug(f"With k={k}")
                 
-                cur.execute(main_sql, params)
-                rows = cur.fetchall()
+                self.cursor.execute(main_sql, params)
+                rows = self.cursor.fetchall()
                 
                 log.debug(f"Search completed - Found {len(rows)} results")
                 
