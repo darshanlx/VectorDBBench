@@ -13,7 +13,7 @@ nbits = 8                        # Bits per sub-vector (256 centroids per subqua
 train_size = 298000             # Increased training size (recommended: 30-100x nlist)
 index_id = "cohere_wiki_ivfpq_ip_2k"   # Updated ID to reflect 4K clusters
 
-print("=== IVFPQ Index Configuration (Inner Product) ===")
+print("=== IVFPQ Index Configuration (Inner Product) ===") 
 print(f"Dimension (d): {d}")
 print(f"Number of clusters (nlist): {nlist}")
 print(f"Sub-vectors (m): {m}")
@@ -92,14 +92,14 @@ assert d_sub * m == d, f"Subvector dimensions don't match: {d_sub} * {m} = {d_su
 print("✓ All shape verifications passed!")
 
 metadata_sql = f"""
-INSERT INTO VECTORDB_DATA VALUES (
+INSERT INTO VECTORDB_DATA_IP VALUES (
   '{index_id}', 'metadata', 0,
   JSON_OBJECT('version', 1, 'nlist', {nlist}, 'pq_m', {m}, 'pq_nbits', {nbits})
 );
 """
 
 quantizer_sqls = [
-    f"INSERT INTO VECTORDB_DATA VALUES ("
+    f"INSERT INTO VECTORDB_DATA_IP VALUES ("
     f"'{index_id}', 'quantizer', {i}, '{centroids[i].tolist()}'"
     f");"
     for i in range(nlist)
