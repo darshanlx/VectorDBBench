@@ -818,7 +818,7 @@ class FacebookMyRocks(VectorDB):
         self.index_type = db_config.get("index_type", "flat")
         self.table_name = "vec_collection_ip"
         self.trained_index_table = "VECTORDB_DATA_IP"
-        self.trained_index_id = "cohere_wiki_ivfpq_ip_4k"
+        self.trained_index_id = "cohere_wiki_ivfpq_ip_2k"
         self.dimension = db_config.get("dimension", 768)
         self.name = "FacebookMyRocks"
 
@@ -848,7 +848,7 @@ class FacebookMyRocks(VectorDB):
             if self.index_type == "ivfflat":
                 self._execute_sql_file("cohere_wiki_ivfflat2.sql")
             else:
-                self._execute_sql_file("cohere_wiki_ivfpq_ip_4k.sql")
+                self._execute_sql_file("cohere_wiki_ivfpq_ip_2k.sql")
 
             # Commit all changes
             self.conn.commit()
@@ -868,7 +868,7 @@ class FacebookMyRocks(VectorDB):
         try:
             # Create connection
             conn = mysql.connector.connect(
-                host=self.host,       # MySQL server address
+                host="35.200.242.5",       # MySQL server address
                 user=self.user,            # MySQL username
                 password=self.password, # MySQL password
                 database=self.database      # Database name
