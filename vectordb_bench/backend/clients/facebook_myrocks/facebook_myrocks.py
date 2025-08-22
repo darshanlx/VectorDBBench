@@ -816,9 +816,9 @@ class FacebookMyRocks(VectorDB):
         self.vector_type = db_config.get("vector_type", "BLOB")
         self.metric_type = db_config.get("metric_type", "COSINE")
         self.index_type = db_config.get("index_type", "flat")
-        self.table_name = "vec_collection_ip"
-        self.trained_index_table = "VECTORDB_DATA_IP"
-        self.trained_index_id = "cohere_wiki_ivfpq_ip_2k"
+        self.table_name = "vec_collection_l2"
+        self.trained_index_table = "VECTORDB_DATA_L2"
+        self.trained_index_id = "cohere_wiki_ivfpq_l2"
         self.dimension = db_config.get("dimension", 768)
         self.name = "FacebookMyRocks"
 
@@ -827,7 +827,7 @@ class FacebookMyRocks(VectorDB):
         print("DEBUG init")
 
         # Drop table if exists
-        self.cursor.execute("DROP TABLE IF EXISTS VECTORDB_DATA_IP")
+        self.cursor.execute("DROP TABLE IF EXISTS VECTORDB_DATA_L2")
         
         # Drop user if exists
         self.cursor.execute("DROP USER IF EXISTS 'admin:sys.database'")
@@ -848,7 +848,7 @@ class FacebookMyRocks(VectorDB):
             if self.index_type == "ivfflat":
                 self._execute_sql_file("cohere_wiki_ivfflat2.sql")
             else:
-                self._execute_sql_file("cohere_wiki_ivfpq_ip_2k.sql")
+                self._execute_sql_file("cohere_wiki_ivfpq_l2.sql")
 
             # Commit all changes
             self.conn.commit()
@@ -988,7 +988,7 @@ class FacebookMyRocks(VectorDB):
         assert self.cursor is not None, "Cursor is not initialized"
 
         create_table_sql = f"""
-            CREATE TABLE VECTORDB_DATA_IP (
+            CREATE TABLE VECTORDB_DATA_L2 (
                 id VARCHAR(128) NOT NULL,
                 type VARCHAR(128) NOT NULL,
                 seqno INT NOT NULL,
@@ -1251,7 +1251,7 @@ class FacebookMyRocks(VectorDB):
             batch_data = []
             for i in range(len(embeddings)):
                 vector_json = self._vector_to_json(embeddings[i])
-                name = f"cohere_vector_ip_{metadata[i]}"
+                name = f"cohere_vector_l2_{metadata[i]}"
                 label = labels_data[i] if labels_data else None
                 batch_data.append((int(metadata[i]), vector_json, name, label))
 
@@ -1412,8 +1412,8 @@ class FacebookMyRocks(VectorDB):
             
             elif self.metric_type == "L2":
                 main_sql = """
-                    SELECT id FROM vec_collection 
-                    ORDER BY FB_VECTOR_IP(v, %s)
+                    SELECT id FROM vec_collection_l2
+                    ORDER BY FB_VECTOR_L2(v, %s)
                     LIMIT %s
                 """
                 

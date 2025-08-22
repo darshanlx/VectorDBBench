@@ -5,15 +5,18 @@ import itertools
 import json
 import pickle
 
+
+
+
 # Configuration
 d = 768                          # Cohere embedding dimension
-nlist = 1024                    # Number of clusters (increased for better granularity)
+nlist = 1024                     # Number of clusters
 m = 64                           # Sub-vectors (768/64=12D per sub-vector)
 nbits = 8                        # Bits per sub-vector (256 centroids per subquantizer)
-train_size = 298000             # Increased training size (recommended: 30-100x nlist)
-index_id = "cohere_wiki_ivfpq_ip_2k"   # Updated ID to reflect 4K clusters
+train_size = 298000             # Number of vectors for training
+index_id = "cohere_wiki_ivfpq_l2"   # Unique ID for MySQL
 
-print("=== IVFPQ Index Configuration (Inner Product) ===") 
+print("=== IVFPQ Index Configuration ===")
 print(f"Dimension (d): {d}")
 print(f"Number of clusters (nlist): {nlist}")
 print(f"Sub-vectors (m): {m}")
@@ -21,13 +24,23 @@ print(f"Sub-vector dimension (d/m): {d//m}")
 print(f"Bits per sub-vector (nbits): {nbits}")
 print(f"Training size: {train_size}")
 print(f"Index ID: {index_id}")
-print("Similarity metric: Inner Product (no normalization)")
 
 # Verify configuration
 if d % m != 0:
     raise ValueError(f"Dimension {d} must be divisible by number of sub-vectors {m}")
 
-# Load training vectors from pickle file
+# # Load Cohere embeddings in streaming mode
+# print("\n=== Loading Training Data ===")
+# streamed_ds = load_dataset(
+#     "Cohere/wikipedia-22-12-en-embeddings",
+#     split="train",
+#     streaming=True
+# )
+
+# # Load training vectors
+# print(f"Loading {train_size} vectors for training...")
+# train_batch = list(itertools.islice(streamed_ds, train_size))
+# train_vectors = np.stack([rec['emb'] for rec in train_batch], axis=0).astype('float32')
 try:
     with open("accumulated_cohere_embeddings.pkl", 'rb') as f:
         embedding_data = pickle.load(f)
@@ -42,14 +55,14 @@ try:
 except Exception as e:
     print(f"Error loading training vectors from file: {e}")
 
-# NOTE: NO NORMALIZATION for pure inner product similarity
-# The vectors remain in their original space for inner product computation
-print("Using raw vectors for inner product similarity (no normalization)")
+# print(f"Training vectors shape: {train_vectors.shape}")
+# print(f"First vector sample: {train_vectors[0][:5]}...")  # Show first 5 dimensions
 
-# Create IVFPQ index for inner product
-print("\n=== Creating IVFPQ Index (Inner Product) ===")
-quantizer = faiss.IndexFlatIP(d)  # Inner product quantizer
-index = faiss.IndexIVFPQ(quantizer, d, nlist, m, nbits, faiss.METRIC_INNER_PRODUCT)
+print("Using raw vectors for inner product similarity (no normalization)")
+# Create IVFPQ index
+print("\n=== Creating IVFPQ Index ===")
+quantizer = faiss.IndexFlatL2(d)  # Inner product (cosine similarity)
+index = faiss.IndexIVFPQ(quantizer, d, nlist, m, nbits, faiss.METRIC_L2)
 
 print("Index created. Starting training...")
 
@@ -61,7 +74,6 @@ print("Training completed successfully!")
 print(f"\n=== Index Parameters Verification ===")
 print(f"Index nlist: {index.nlist}")
 print(f"Index dimension: {index.d}")
-print(f"Index metric: Inner Product")
 print(f"PQ M (subquantizers): {index.pq.M}")
 print(f"PQ dsub (subvector dim): {index.pq.dsub}")
 print(f"PQ nbits: {index.pq.nbits}")
@@ -92,14 +104,14 @@ assert d_sub * m == d, f"Subvector dimensions don't match: {d_sub} * {m} = {d_su
 print("✓ All shape verifications passed!")
 
 metadata_sql = f"""
-INSERT INTO VECTORDB_DATA_IP VALUES (
+INSERT INTO VECTORDB_DATA_L2 VALUES (
   '{index_id}', 'metadata', 0,
   JSON_OBJECT('version', 1, 'nlist', {nlist}, 'pq_m', {m}, 'pq_nbits', {nbits})
 );
 """
 
 quantizer_sqls = [
-    f"INSERT INTO VECTORDB_DATA_IP VALUES ("
+    f"INSERT INTO VECTORDB_DATA_L2 VALUES ("
     f"'{index_id}', 'quantizer', {i}, '{centroids[i].tolist()}'"
     f");"
     for i in range(nlist)
@@ -110,7 +122,7 @@ product_quantizer_sqls = []
 for m_i in range(m):
     for code in range(256):
         product_quantizer_sqls.append(
-            f"INSERT INTO VECTORDB_DATA_IP VALUES ("
+            f"INSERT INTO VECTORDB_DATA_L2 VALUES ("
             f"'{index_id}', 'product_quantizer', {m_i * 256 + code}, "
             f"'{json.dumps(codebooks[m_i, code].tolist())}'"  # Removed quotes around json.dumps
             f");"
@@ -125,9 +137,9 @@ full_sql = (
 )
 
 # Save to file
-with open("cohere_wiki_ivfpq_ip_2k.sql", "w") as f:
+with open("cohere_wiki_ivfpq_l2.sql", "w") as f:
     f.write(full_sql)
 
-print(f"SQL for auxiliary table saved to cohere_wiki_ivfpq_ip_4k.sql")
+print(f"SQL for auxiliary table saved to cohere_wiki_ivfpq_l2.sql")
 print(f"Total centroids: {nlist}")
 print(f"Total PQ codebook entries: {m * 256}")
