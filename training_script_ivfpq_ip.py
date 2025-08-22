@@ -29,7 +29,7 @@ if d % m != 0:
 
 # Load training vectors from pickle file
 try:
-    with open("accumulated_cohere_embeddings2.pkl", 'rb') as f:
+    with open("accumulated_cohere_embeddings.pkl", 'rb') as f:
         embedding_data = pickle.load(f)
     
     # Convert to numpy array (same format as original Cohere loading)

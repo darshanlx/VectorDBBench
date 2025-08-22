@@ -868,7 +868,7 @@ class FacebookMyRocks(VectorDB):
         try:
             # Create connection
             conn = mysql.connector.connect(
-                host="35.200.242.5",       # MySQL server address
+                host=self.host,       # MySQL server address
                 user=self.user,            # MySQL username
                 password=self.password, # MySQL password
                 database=self.database      # Database name
