@@ -14,7 +14,7 @@ nlist = 1024                     # Number of clusters
 m = 64                           # Sub-vectors (768/64=12D per sub-vector)
 nbits = 8                        # Bits per sub-vector (256 centroids per subquantizer)
 train_size = 298000             # Number of vectors for training
-index_id = "cohere_wiki_ivfpq_l2"   # Unique ID for MySQL
+index_id = "cohere_wiki_ivfpq"   # Unique ID for MySQL
 
 print("=== IVFPQ Index Configuration ===")
 print(f"Dimension (d): {d}")
@@ -29,18 +29,6 @@ print(f"Index ID: {index_id}")
 if d % m != 0:
     raise ValueError(f"Dimension {d} must be divisible by number of sub-vectors {m}")
 
-# # Load Cohere embeddings in streaming mode
-# print("\n=== Loading Training Data ===")
-# streamed_ds = load_dataset(
-#     "Cohere/wikipedia-22-12-en-embeddings",
-#     split="train",
-#     streaming=True
-# )
-
-# # Load training vectors
-# print(f"Loading {train_size} vectors for training...")
-# train_batch = list(itertools.islice(streamed_ds, train_size))
-# train_vectors = np.stack([rec['emb'] for rec in train_batch], axis=0).astype('float32')
 try:
     with open("accumulated_cohere_embeddings.pkl", 'rb') as f:
         embedding_data = pickle.load(f)
@@ -54,9 +42,6 @@ try:
 
 except Exception as e:
     print(f"Error loading training vectors from file: {e}")
-
-# print(f"Training vectors shape: {train_vectors.shape}")
-# print(f"First vector sample: {train_vectors[0][:5]}...")  # Show first 5 dimensions
 
 print("Using raw vectors for inner product similarity (no normalization)")
 # Create IVFPQ index
@@ -104,15 +89,15 @@ assert d_sub * m == d, f"Subvector dimensions don't match: {d_sub} * {m} = {d_su
 print("✓ All shape verifications passed!")
 
 metadata_sql = f"""
-INSERT INTO VECTORDB_DATA_L2 VALUES (
+INSERT INTO VECTORDB_DATA VALUES (
   '{index_id}', 'metadata', 0,
   JSON_OBJECT('version', 1, 'nlist', {nlist}, 'pq_m', {m}, 'pq_nbits', {nbits})
 );
 """
 
 quantizer_sqls = [
-    f"INSERT INTO VECTORDB_DATA_L2 VALUES ("
-    f"'{index_id}', 'quantizer', {i}, '{centroids[i].tolist()}'"
+    f"INSERT INTO VECTORDB_DATA VALUES ("
+    f"'{index_id}', 'quantizer', {i}, '{json.dumps(centroids[i].tolist())}'"
     f");"
     for i in range(nlist)
 ]
@@ -122,7 +107,7 @@ product_quantizer_sqls = []
 for m_i in range(m):
     for code in range(256):
         product_quantizer_sqls.append(
-            f"INSERT INTO VECTORDB_DATA_L2 VALUES ("
+            f"INSERT INTO VECTORDB_DATA VALUES ("
             f"'{index_id}', 'product_quantizer', {m_i * 256 + code}, "
             f"'{json.dumps(codebooks[m_i, code].tolist())}'"  # Removed quotes around json.dumps
             f");"

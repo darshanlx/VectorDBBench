@@ -17,17 +17,7 @@ print(f"Number of clusters (nlist): {nlist}")
 print(f"Training size: {train_size}")
 print(f"Index ID: {index_id}")
 
-# # Load Cohere embeddings in streaming mode
-# streamed_ds = load_dataset(
-#     "Cohere/wikipedia-22-12-en-embeddings",
-#     split="train",
-#     streaming=True
-# )
 
-# # Load training vectors (first 100K)
-# print(f"Loading {train_size} vectors for training...")
-# train_batch = list(itertools.islice(streamed_ds, train_size))
-# train_vectors = np.stack([rec['emb'] for rec in train_batch], axis=0).astype('float32')
 try:
     with open("accumulated_cohere_embeddings.pkl", 'rb') as f:
         embedding_data = pickle.load(f)
@@ -42,9 +32,6 @@ try:
 except Exception as e:
     print(f"Error loading training vectors from file: {e}")
 
-# Normalize vectors for cosine similarity
-faiss.normalize_L2(train_vectors)
-print("Vectors normalized for cosine similarity")
 
 quantizer = faiss.IndexFlatIP(d)                   # L2 distance metric
 index = faiss.IndexIVFFlat(quantizer, d, nlist, faiss.METRIC_INNER_PRODUCT)
@@ -66,7 +53,7 @@ print(f"Coarse centroids shape: {centroids.shape}")
 assert centroids.shape == (nlist, d), f"Centroids shape mismatch: {centroids.shape}"
 print("✓ Shape verification passed!")
 
-# Verify centroids are normalized (for cosine similarity)
+# Debug norms
 centroid_norms = np.linalg.norm(centroids, axis=1)
 print(f"Centroid norms - min: {centroid_norms.min():.6f}, max: {centroid_norms.max():.6f}, mean: {centroid_norms.mean():.6f}")
 
@@ -79,7 +66,7 @@ INSERT INTO VECTORDB_DATA VALUES (
 
 quantizer_sqls = [
     f"INSERT INTO VECTORDB_DATA VALUES ("
-    f"'{index_id}', 'quantizer', {i}, '{centroids[i].tolist()}'"
+    f"'{index_id}', 'quantizer', {i}, '{json.dumps(centroids[i].tolist())}'"
     f");"
     for i in range(nlist)
 ]
@@ -91,8 +78,8 @@ full_sql = (
 )
 
 # Save to file
-with open("cohere_wiki_ivfflat2.sql", "w") as f:
+with open("cohere_wiki_ivfflat_ip.sql", "w") as f:
     f.write(full_sql)
 
-print(f"SQL for auxiliary table saved to cohere_wiki_ivfflat2.sql")
+print(f"SQL for auxiliary table saved to cohere_wiki_ivfflat_ip.sql")
 print(f"Total centroids: {nlist}")
