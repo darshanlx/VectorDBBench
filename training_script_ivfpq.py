@@ -55,8 +55,6 @@ try:
 except Exception as e:
     print(f"Error loading training vectors from file: {e}")
 
-# print(f"Training vectors shape: {train_vectors.shape}")
-# print(f"First vector sample: {train_vectors[0][:5]}...")  # Show first 5 dimensions
 
 # Normalize vectors for cosine similarity
 print("Normalizing vectors...")
@@ -115,7 +113,7 @@ INSERT INTO VECTORDB_DATA VALUES (
 
 quantizer_sqls = [
     f"INSERT INTO VECTORDB_DATA VALUES ("
-    f"'{index_id}', 'quantizer', {i}, '{centroids[i].tolist()}'"
+    f"'{index_id}', 'quantizer', {i}, '{json.dumps(centroids[i].tolist())}'"
     f");"
     for i in range(nlist)
 ]
@@ -140,9 +138,9 @@ full_sql = (
 )
 
 # Save to file
-with open("cohere_wiki_ivfpq2.sql", "w") as f:
+with open("cohere_wiki_ivfpq_cosine.sql", "w") as f:
     f.write(full_sql)
 
-print(f"SQL for auxiliary table saved to cohere_wiki_ivfpq.sql")
+print(f"SQL for auxiliary table saved to cohere_wiki_ivfpq_cosine.sql")
 print(f"Total centroids: {nlist}")
 print(f"Total PQ codebook entries: {m * 256}")

@@ -11,7 +11,7 @@ nlist = 1024                    # Number of clusters (increased for better granu
 m = 64                           # Sub-vectors (768/64=12D per sub-vector)
 nbits = 8                        # Bits per sub-vector (256 centroids per subquantizer)
 train_size = 298000             # Increased training size (recommended: 30-100x nlist)
-index_id = "cohere_wiki_ivfpq_ip_2k"   # Updated ID to reflect 4K clusters
+index_id = "cohere_wiki_ivfpq"   # Updated ID to reflect 4K clusters
 
 print("=== IVFPQ Index Configuration (Inner Product) ===") 
 print(f"Dimension (d): {d}")
@@ -92,15 +92,15 @@ assert d_sub * m == d, f"Subvector dimensions don't match: {d_sub} * {m} = {d_su
 print("✓ All shape verifications passed!")
 
 metadata_sql = f"""
-INSERT INTO VECTORDB_DATA_IP VALUES (
+INSERT INTO VECTORDB_DATA VALUES (
   '{index_id}', 'metadata', 0,
   JSON_OBJECT('version', 1, 'nlist', {nlist}, 'pq_m', {m}, 'pq_nbits', {nbits})
 );
 """
 
 quantizer_sqls = [
-    f"INSERT INTO VECTORDB_DATA_IP VALUES ("
-    f"'{index_id}', 'quantizer', {i}, '{centroids[i].tolist()}'"
+    f"INSERT INTO VECTORDB_DATA VALUES ("
+    f"'{index_id}', 'quantizer', {i}, '{json.dumps(centroids[i].tolist())}'"
     f");"
     for i in range(nlist)
 ]
@@ -110,7 +110,7 @@ product_quantizer_sqls = []
 for m_i in range(m):
     for code in range(256):
         product_quantizer_sqls.append(
-            f"INSERT INTO VECTORDB_DATA_IP VALUES ("
+            f"INSERT INTO VECTORDB_DATA VALUES ("
             f"'{index_id}', 'product_quantizer', {m_i * 256 + code}, "
             f"'{json.dumps(codebooks[m_i, code].tolist())}'"  # Removed quotes around json.dumps
             f");"
@@ -125,9 +125,9 @@ full_sql = (
 )
 
 # Save to file
-with open("cohere_wiki_ivfpq_ip_2k.sql", "w") as f:
+with open("cohere_wiki_ivfpq_ip.sql", "w") as f:
     f.write(full_sql)
 
-print(f"SQL for auxiliary table saved to cohere_wiki_ivfpq_ip_4k.sql")
+print(f"SQL for auxiliary table saved to cohere_wiki_ivfpq_ip.sql")
 print(f"Total centroids: {nlist}")
 print(f"Total PQ codebook entries: {m * 256}")
