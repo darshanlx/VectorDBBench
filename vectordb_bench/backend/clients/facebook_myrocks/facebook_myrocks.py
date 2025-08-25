@@ -375,8 +375,8 @@ class FacebookMyRocks(VectorDB):
         # Set nprobe to 64 after creating connection
         if self.cursor is not None:
             try:
-                self.cursor.execute("SET SESSION fb_vector_search_nprobe = 64")
-                log.info("✅ Set fb_vector_search_nprobe to 64")
+                self.cursor.execute("SET SESSION fb_vector_search_nprobe = 32")
+                log.info("✅ Set fb_vector_search_nprobe to 32")
             except Exception as e:
                 log.warning(f"⚠️ Warning: Failed to set nprobe: {e}")
 
