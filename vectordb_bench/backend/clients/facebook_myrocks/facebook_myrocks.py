@@ -47,51 +47,51 @@ class FacebookMyRocks(VectorDB):
         self.conn, self.cursor = self._create_connection()
         log.debug("Creating connection in start __init__ method")
 
-        # # Drop table if exists
-        # drop_query = f"DROP TABLE IF EXISTS {self.trained_index_table}"
-        # self.cursor.execute(drop_query)
+        # Drop table if exists
+        drop_query = f"DROP TABLE IF EXISTS {self.trained_index_table}"
+        self.cursor.execute(drop_query)
         
-        # # Drop user if exists
-        # self.cursor.execute("DROP USER IF EXISTS 'admin:sys.database'")
+        # Drop user if exists
+        self.cursor.execute("DROP USER IF EXISTS 'admin:sys.database'")
 
-        # if self.index_type in ['ivfflat', 'ivfpq']:
-        #     # Create the VECTORDB_DATA table using the dedicated function
-        #     self._create_vectordb_data_table()
+        if self.index_type in ['ivfflat', 'ivfpq']:
+            # Create the VECTORDB_DATA table using the dedicated function
+            self._create_vectordb_data_table()
              
-        #     # Create user
-        #     self.cursor.execute("CREATE USER 'admin:sys.database'")
+            # Create user
+            self.cursor.execute("CREATE USER 'admin:sys.database'")
 
-        #     # Grant privileges
-        #     self.cursor.execute("GRANT ALL ON *.* TO 'admin:sys.database'@'%'")
+            # Grant privileges
+            self.cursor.execute("GRANT ALL ON *.* TO 'admin:sys.database'@'%'")
 
-        #     # Flush privileges
-        #     self.cursor.execute("FLUSH PRIVILEGES")
+            # Flush privileges
+            self.cursor.execute("FLUSH PRIVILEGES")
 
-        #     if self.index_type == "ivfflat":
-        #         if self.metric_type.lower() == "cosine":
-        #             self._execute_sql_file("cohere_wiki_ivfflat_cosine.sql")
-        #         elif self.metric_type.lower() == "l2":
-        #             self._execute_sql_file("cohere_wiki_ivfflat_l2.sql")
-        #         elif self.metric_type.lower() == "ip":
-        #             self._execute_sql_file("cohere_wiki_ivfflat_ip.sql")
-        #         else:
-        #             log.error("Invalid metric type chosen")
-        #     else:
-        #         if self.metric_type.lower() == "cosine":
-        #             self._execute_sql_file("cohere_wiki_ivfpq_cosine.sql")
-        #         elif self.metric_type.lower() == "l2":
-        #             self._execute_sql_file("cohere_wiki_ivfpq_l2.sql")
-        #         elif self.metric_type.lower() == "ip":
-        #             self._execute_sql_file("cohere_wiki_ivfpq_ip.sql")
-        #         else:
-        #             log.error("Invalid metric type chosen")
+            if self.index_type == "ivfflat":
+                if self.metric_type.lower() == "cosine":
+                    self._execute_sql_file("cohere_wiki_ivfflat_cosine.sql")
+                elif self.metric_type.lower() == "l2":
+                    self._execute_sql_file("cohere_wiki_ivfflat_l2.sql")
+                elif self.metric_type.lower() == "ip":
+                    self._execute_sql_file("cohere_wiki_ivfflat_ip.sql")
+                else:
+                    log.error("Invalid metric type chosen")
+            else:
+                if self.metric_type.lower() == "cosine":
+                    self._execute_sql_file("cohere_wiki_ivfpq_cosine.sql")
+                elif self.metric_type.lower() == "l2":
+                    self._execute_sql_file("cohere_wiki_ivfpq_l2.sql")
+                elif self.metric_type.lower() == "ip":
+                    self._execute_sql_file("cohere_wiki_ivfpq_ip.sql")
+                else:
+                    log.error("Invalid metric type chosen")
 
-        #     # Commit all changes
-        #     self.conn.commit()
+            # Commit all changes
+            self.conn.commit()
 
 
-        # self._drop_table(self.table_name)
-        # self._create_table(self.dimension)
+        self._drop_table(self.table_name)
+        self._create_table(self.dimension)
 
         self.cursor.close()
         self.conn.close()
